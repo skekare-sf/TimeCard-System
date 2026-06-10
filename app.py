@@ -22,15 +22,18 @@ from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request, Response
+
+load_dotenv()
 
 app = Flask(__name__)
 
 DATA_DIR = Path(__file__).parent / "data"
 
 # ─── SLACK CONFIG ─────────────────────────────────────────────────────────────
-SLACK_FRIDAY_WEBHOOK_URL = "https://hooks.slack.com/triggers/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"
-SLACK_MONDAY_WEBHOOK_URL = "https://hooks.slack.com/triggers/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"
+SLACK_FRIDAY_WEBHOOK_URL = os.getenv("SLACK_FRIDAY_WEBHOOK_URL", "")
+SLACK_MONDAY_WEBHOOK_URL = os.getenv("SLACK_MONDAY_WEBHOOK_URL", "")
 
 EMAIL_TO_SLACK_VAR = {
     "puneethvenkat.murali@salesforce.com": "text_puneeth",
