@@ -1,0 +1,6 @@
+Timestamp,Channel,User,MessageLink,Message
+1781017958,#hackathon-test-ff,@Puneeth Venkat Murali,https://salesforce-internal.slack.com/archives/C0B98A8097X/p1781017958085299,We decided to go ahead with SSO authentication for the customer portal. Security team approved.
+1781019270,#hackathon-test-ff,@Priya Sharma,https://salesforce-internal.slack.com/archives/C0B98A8097X/p1781019270307269,UAT sign-off is still pending from the customer QA lead. We have been waiting for 9 days now and testing is completely blocked.
+1781019423,#hackathon-test-ff,@Rahul Mehta,https://salesforce-internal.slack.com/archives/C0B98A8097X/p1781019423319109,The data migration script failed during the dry run. Need the DB team to review the schema mapping before we can retry.
+1781020100,#hackathon-test-ff,@Puneeth Venkat Murali,https://salesforce-internal.slack.com/archives/C0B98A8097X/p1781020100123456,Deployment to staging is on hold until UAT is cleared. This is now delaying go-live by at least 2 weeks.
+1781021500,#hackathon-test-ff,@Anita Rao,https://salesforce-internal.slack.com/archives/C0B98A8097X/p1781021500654321,Security review for the API integration has not been started yet. This was supposed to be done last week.

@@ -433,16 +433,32 @@ function updateBadge(notifs) {
 // ─── ACTIONS ─────────────────────────────────────────────────────────────────
 
 async function triggerMonday() {
+    showToast('Sending Monday briefings via Claude... please wait.');
     const res = await fetch('/api/monday/trigger', { method: 'POST' });
     const data = await res.json();
-    showToast(data.message);
+    const slackNote = data.slack_messages_sent === 'sent'
+        ? ' Slack DMs sent to all consultants.'
+        : data.slack_messages_sent === 'claude_error'
+            ? ` Claude error: ${data.slack_detail}`
+            : data.slack_messages_sent === 'error'
+                ? ` Slack error: ${data.slack_detail}`
+                : '';
+    showToast(data.message + slackNote);
     loadDashboard();
 }
 
 async function triggerFriday() {
+    showToast('Generating timecards and sending Slack messages via Claude... please wait.');
     const res = await fetch('/api/friday/trigger', { method: 'POST' });
     const data = await res.json();
-    showToast(data.message);
+    const slackNote = data.slack_messages_sent === 'sent'
+        ? ' Slack DMs sent to all consultants.'
+        : data.slack_messages_sent === 'claude_error'
+            ? ` Claude error: ${data.slack_detail}`
+            : data.slack_messages_sent === 'error'
+                ? ` Slack error: ${data.slack_detail}`
+                : '';
+    showToast(data.message + slackNote);
     loadDashboard();
 }
 

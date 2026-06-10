@@ -1,0 +1,5 @@
+Consultant,Role,Project,Hours_Allocated,Hours_Spent,Hours_Remaining,Status,Slack_User,Email
+Puneeth Venkat Murali,Project Manager,CRM Implementation,80,78,2,At Risk,@puneeth.venkatmurali,puneeth.venkatmurali@salesforce.com
+Shradha Kekare,Business Analyst,CRM Implementation,60,45,15,On Track,@shradha.kekare,skekare@salesforce.com
+Nafeesa Ali,Developer,CRM Implementation,120,130,-10,Overrun,@nafeesa.ali,nafeesa.ali@salesforce.com
+Anvith,QA Lead,CRM Implementation,40,5,35,Blocked,@anvith,nafeesa.ali@salesforce.com

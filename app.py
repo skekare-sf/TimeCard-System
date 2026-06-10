@@ -15,6 +15,9 @@ import csv
 import io
 import json
 import os
+import subprocess
+import urllib.request
+import urllib.error
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -24,6 +27,194 @@ from flask import Flask, jsonify, render_template, request, Response
 app = Flask(__name__)
 
 DATA_DIR = Path(__file__).parent / "data"
+
+# ─── SLACK CONFIG ─────────────────────────────────────────────────────────────
+SLACK_FRIDAY_WEBHOOK_URL = "https://hooks.slack.com/triggers/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"
+SLACK_MONDAY_WEBHOOK_URL = "https://hooks.slack.com/triggers/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"
+
+EMAIL_TO_SLACK_VAR = {
+    "puneethvenkat.murali@salesforce.com": "text_puneeth",
+    "skekare@salesforce.com":              "text_shradha",
+    "nafeesa.ali@salesforce.com":          "text_nafeesa",
+    "ahurakadli@salesforce.com":           "text_anvith",
+}
+
+
+def _ask_claude_for_friday_messages(employee_timecards):
+    """Call Claude CLI to generate personalised Friday Slack DMs from timecard data."""
+    lines = []
+    for email, tc in employee_timecards.items():
+        lines.append(f"\n{tc['employee_name']} ({email}):")
+        for e in tc["entries"]:
+            allocated = e["allocated_hours"]
+            consumed = e["consumed_hours"]
+            pct = round((consumed / allocated * 100) if allocated > 0 else 0)
+            extra_flag = " [EXTRA - not in allocation]" if e.get("is_extra") and allocated == 0 else (
+                f" [OVERRUN +{consumed - allocated}h]" if consumed > allocated and allocated > 0 else ""
+            )
+            lines.append(
+                f"  - {e['project_name']} ({e['project_id']}): "
+                f"{consumed}h consumed / {allocated}h allocated ({pct}% used)"
+                f" | {tc['week_start']} to {tc['week_end']}{extra_flag}"
+            )
+    data_text = "\n".join(lines)
+
+    json_keys = {email: f"message for {tc['employee_name']}" for email, tc in employee_timecards.items()}
+    json_example = json.dumps(json_keys, indent=2)
+
+    prompt = f"""You are a project coordination assistant reviewing weekly timecard data for a Salesforce Certinia team.
+
+Here is this week's timecard data prepared on Friday:
+
+{data_text}
+
+For each person, write a SHORT personalised Slack DM (2-3 sentences max) about:
+- Their specific project hours this week
+- Any concerns (hours not started = 0 consumed, overrun, or extra unallocated project)
+- A clear action if needed (e.g. "please review and submit your timecard")
+
+Rules:
+- Only mention that person's own data, never other colleagues
+- Start each message with "Hi [FirstName],"
+- End with "Please review and submit your timecard on the portal."
+- If consumed_hours is 0 for a project, flag it as not started
+- Use ONLY plain ASCII characters. Do NOT use em dashes, en dashes, curly quotes, or any special Unicode punctuation. Use a plain hyphen (-) instead of a dash.
+
+Return ONLY a valid JSON object keyed by email address, nothing else:
+{json_example}"""
+
+    result = subprocess.run(
+        ["claude", "-p", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    if result.returncode != 0 or not result.stdout:
+        return None, result.stderr[:400]
+
+    output = result.stdout.strip()
+    start = output.find("{")
+    end = output.rfind("}") + 1
+    if start == -1 or end == 0:
+        return None, f"No JSON in Claude output: {output[:300]}"
+
+    try:
+        return json.loads(output[start:end]), None
+    except json.JSONDecodeError as exc:
+        return None, str(exc)
+
+
+def _sanitise_message(text):
+    """Replace Unicode punctuation with plain ASCII equivalents."""
+    return (text
+        .replace("—", "-")   # em dash
+        .replace("–", "-")   # en dash
+        .replace("‘", "'")   # left single quote
+        .replace("’", "'")   # right single quote
+        .replace("“", '"')   # left double quote
+        .replace("”", '"')   # right double quote
+        .replace("…", "...")  # ellipsis
+    )
+
+
+def _send_to_slack(messages_by_email, webhook_url, use_text_key=False):
+    """Send messages to Slack via webhook.
+    use_text_key=True: sends {"text": msg} (single-variable Monday workflow).
+    use_text_key=False: sends {"text_<var>": msg, ...} (multi-variable Friday workflow).
+    """
+    payload_dict = {}
+    for email, message in messages_by_email.items():
+        clean = _sanitise_message(message)
+        if use_text_key:
+            payload_dict["text"] = clean
+        else:
+            var = EMAIL_TO_SLACK_VAR.get(email)
+            if var:
+                payload_dict[var] = clean
+
+    if not payload_dict:
+        return False, "No mapped Slack variables for any email"
+
+    payload = json.dumps(payload_dict).encode("utf-8")
+    req = urllib.request.Request(
+        webhook_url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as res:
+            return True, res.read().decode()
+    except urllib.error.HTTPError as e:
+        return False, f"HTTP {e.code}: {e.read().decode()}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _ask_claude_for_monday_messages(groups):
+    """Call Claude CLI to generate personalised Monday allocation Slack DMs."""
+    lines = []
+    for name, info in groups.items():
+        email = info["email"]
+        lines.append(f"\n{name} ({email}):")
+        for p in info["projects"]:
+            remaining = float(p["allocated_hours"]) - float(p["consumed_hours"])
+            lines.append(
+                f"  - {p['project_name']} ({p['project_id']}): "
+                f"{p['allocated_hours']}h allocated, {p['consumed_hours']}h consumed so far, "
+                f"{remaining:.1f}h remaining | {p['start_date']} to {p['end_date']}"
+            )
+
+    data_text = "\n".join(lines)
+    json_keys = {info["email"]: f"message for {name}" for name, info in groups.items()}
+    json_example = json.dumps(json_keys, indent=2)
+
+    prompt = f"""You are a project coordination assistant sending Monday morning briefings to a Salesforce Certinia consulting team.
+
+Here is this week's project allocation data:
+
+{data_text}
+
+For each person, write a SHORT personalised Slack DM (2-3 sentences max) covering:
+- Their project(s) for the week and total hours allocated
+- Any project where remaining hours are low (under 25% remaining) — flag it
+- A motivating start-of-week tone
+
+Rules:
+- Only mention that person's own projects, never other colleagues
+- Start each message with "Hi [FirstName], good morning!"
+- End with "Have a great week!"
+- If consumed_hours is already high relative to allocated, note it as something to keep an eye on
+- Use ONLY plain ASCII characters. Do NOT use em dashes, en dashes, curly quotes, or any special Unicode punctuation. Use a plain hyphen (-) instead of a dash.
+
+Return ONLY a valid JSON object keyed by email address, nothing else:
+{json_example}"""
+
+    result = subprocess.run(
+        ["claude", "-p", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+
+    if result.returncode != 0 or not result.stdout:
+        return None, result.stderr[:400]
+
+    output = result.stdout.strip()
+    start = output.find("{")
+    end = output.rfind("}") + 1
+    if start == -1 or end == 0:
+        return None, f"No JSON in Claude output: {output[:300]}"
+
+    try:
+        return json.loads(output[start:end]), None
+    except json.JSONDecodeError as exc:
+        return None, str(exc)
+
+
+def _send_friday_messages_to_slack(messages_by_email):
+    return _send_to_slack(messages_by_email, SLACK_FRIDAY_WEBHOOK_URL)
 
 notifications_log = []
 timecards = []  # Generated timecards pending approval
@@ -162,7 +353,34 @@ def monday_trigger():
         "monday_dm_overview"
     )
 
-    return jsonify({"status": "ok", "message": "Monday notifications sent to all team members"})
+    # ── Claude: generate personalised Monday morning briefings ──────────────
+    slack_status = "skipped"
+    slack_detail = ""
+    claude_messages = {}
+
+    claude_messages, claude_err = _ask_claude_for_monday_messages(groups)
+    if claude_messages:
+        # Monday Slack workflow expects a single {"text": "..."} variable
+        # and is configured to DM Puneeth — send his message as the text payload
+        puneeth_msg = claude_messages.get("puneethvenkat.murali@salesforce.com", "")
+        if puneeth_msg:
+            ok, detail = _send_to_slack({"puneethvenkat.murali@salesforce.com": puneeth_msg}, SLACK_MONDAY_WEBHOOK_URL, use_text_key=True)
+            slack_status = "sent" if ok else "error"
+            slack_detail = detail
+        else:
+            slack_status = "skipped"
+            slack_detail = "No message generated for Puneeth"
+    else:
+        slack_status = "claude_error"
+        slack_detail = claude_err or "Unknown Claude error"
+
+    return jsonify({
+        "status": "ok",
+        "message": "Monday notifications sent to all team members",
+        "slack_messages_sent": slack_status,
+        "slack_detail": slack_detail,
+        "claude_messages": claude_messages,
+    })
 
 
 @app.route("/api/friday/trigger", methods=["POST"])
@@ -309,10 +527,28 @@ def friday_trigger():
                 "friday_timecard"
             )
 
+    # ── Claude: generate personalised Friday Slack messages ──────────────────
+    slack_status = "skipped"
+    slack_detail = ""
+    claude_messages = {}
+
+    if employee_timecards:
+        claude_messages, claude_err = _ask_claude_for_friday_messages(employee_timecards)
+        if claude_messages:
+            ok, detail = _send_friday_messages_to_slack(claude_messages)
+            slack_status = "sent" if ok else "error"
+            slack_detail = detail
+        else:
+            slack_status = "claude_error"
+            slack_detail = claude_err or "Unknown Claude error"
+
     return jsonify({
         "status": "ok",
         "timecards_generated": len(employee_timecards),
         "message": f"Friday timecards generated for {len(employee_timecards)} consultants. They can now review and submit.",
+        "slack_messages_sent": slack_status,
+        "slack_detail": slack_detail,
+        "claude_messages": claude_messages,
     })
 
 
