@@ -1,0 +1,6 @@
+project_id,project_name,dm_name,dm_email,start_date,end_date,allocated_hours,consumed_hours,assigned_consultants,status
+PRJ-101,Service Cloud Migration,Shradha S Kekare,skekare@salesforce.com,2026-06-08,2026-06-12,200,22.0,"Nafeesa Ali,Puneeth Venkat Murali",Active
+PRJ-102,Data Pipeline Optimization,Shradha S Kekare,skekare@salesforce.com,2026-06-08,2026-06-12,160,18,Anvith Hurakadli,Active
+PRJ-103,Lightning Component Redesign,Shradha S Kekare,skekare@salesforce.com,2026-06-08,2026-06-12,180,25.0,Nafeesa Ali,Active
+PRJ-104,Einstein Analytics Dashboard,Shradha S Kekare,skekare@salesforce.com,2026-06-08,2026-06-12,120,11.5,"Anvith Hurakadli,Nafeesa Ali",Active
+PRJ-105,Apex Batch Processing,Shradha S Kekare,skekare@salesforce.com,2026-06-08,2026-06-12,150,16,Puneeth Venkat Murali,Active

@@ -1,0 +1,8 @@
+employee_name,email,role,dm_email,project_id,project_name,start_date,end_date,allocated_hours,consumed_hours
+Nafeesa Ali,nafeesa.ali@salesforce.com,Consultant,skekare@salesforce.com,PRJ-101,Service Cloud Migration,2026-06-08,2026-06-12,20,16
+Nafeesa Ali,nafeesa.ali@salesforce.com,Consultant,skekare@salesforce.com,PRJ-103,Lightning Component Redesign,2026-06-08,2026-06-12,20,25
+Anvith Hurakadli,ahurakadli@salesforce.com,Consultant,skekare@salesforce.com,PRJ-102,Data Pipeline Optimization,2026-06-08,2026-06-12,24,18
+Anvith Hurakadli,ahurakadli@salesforce.com,Consultant,skekare@salesforce.com,PRJ-104,Einstein Analytics Dashboard,2026-06-08,2026-06-12,16,10
+Puneeth Venkat Murali,puneethvenkat.murali@salesforce.com,Consultant,skekare@salesforce.com,PRJ-101,Service Cloud Migration,2026-06-08,2026-06-12,16,6
+Puneeth Venkat Murali,puneethvenkat.murali@salesforce.com,Consultant,skekare@salesforce.com,PRJ-105,Apex Batch Processing,2026-06-08,2026-06-12,24,16
+Nafeesa Ali,nafeesa.ali@salesforce.com,Consultant,skekare@salesforce.com,PRJ-104,Einstein Analytics Dashboard,2026-06-08,2026-06-12,0,1.5

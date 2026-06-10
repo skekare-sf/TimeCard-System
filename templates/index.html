@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timecard Management System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Timecard Management System</h1>
+            <div class="header-actions">
+                <select id="user-switcher" onchange="onUserSwitch()">
+                    <option value="skekare@salesforce.com">Shradha S Kekare (DM)</option>
+                    <option value="nafeesa.ali@salesforce.com">Nafeesa Ali (Consultant)</option>
+                    <option value="ahurakadli@salesforce.com">Anvith Hurakadli (Consultant)</option>
+                    <option value="puneethvenkat.murali@salesforce.com">Puneeth Venkat Murali (Consultant)</option>
+                </select>
+                <div class="notif-bell" onclick="switchTab('notifications')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span id="notif-badge" class="badge">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav>
+        <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="tab-btn" data-tab="timecards" onclick="switchTab('timecards')">Timecards</button>
+        <button class="tab-btn" data-tab="projects" onclick="switchTab('projects')">Projects</button>
+        <button class="tab-btn" data-tab="notifications" onclick="switchTab('notifications')">Notifications</button>
+        <button class="tab-btn" data-tab="actions" onclick="switchTab('actions')">Actions & Export</button>
+    </nav>
+
+    <main>
+        <!-- DASHBOARD -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Active Projects</div>
+                    <div class="stat-value" id="stat-projects">5</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pending Timecards</div>
+                    <div class="stat-value accent" id="stat-pending">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Approved This Week</div>
+                    <div class="stat-value green" id="stat-approved">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Notifications</div>
+                    <div class="stat-value" id="stat-notifs">0</div>
+                </div>
+            </div>
+
+            <div class="two-col">
+                <div class="panel">
+                    <h3>Workflow</h3>
+                    <div class="workflow">
+                        <div class="wf-step"><span class="wf-num">1</span><div><strong>Monday AM</strong><p>Certinia sends allocations to each consultant. DM sees reportee overview.</p></div></div>
+                        <div class="wf-step"><span class="wf-num">2</span><div><strong>During Week</strong><p>Consultants work. Slack captures project context.</p></div></div>
+                        <div class="wf-step"><span class="wf-num">3</span><div><strong>Friday AM</strong><p>System prepares timecards from Slack. Consultants review & submit.</p></div></div>
+                        <div class="wf-step"><span class="wf-num">4</span><div><strong>DM Review</strong><p>Approve or reject with comment. If rejected, consultant modifies & resubmits.</p></div></div>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3>Team Allocations (Certinia)</h3>
+                    <div id="dashboard-team-blocks"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TIMECARDS -->
+        <section id="tab-timecards" class="tab-content">
+            <h2>Timecards</h2>
+            <div id="timecards-container"></div>
+        </section>
+
+        <!-- PROJECTS -->
+        <section id="tab-projects" class="tab-content">
+            <h2>Projects (Certinia)</h2>
+            <div id="projects-container"></div>
+        </section>
+
+        <!-- NOTIFICATIONS -->
+        <section id="tab-notifications" class="tab-content">
+            <h2>Slack Notifications</h2>
+            <p class="muted">Simulated Slack DMs. In production these go to respective Slack channels.</p>
+            <div id="notifications-container"></div>
+        </section>
+
+        <!-- ACTIONS -->
+        <section id="tab-actions" class="tab-content">
+            <h2>Actions & Export</h2>
+            <div class="actions-grid">
+                <div class="panel">
+                    <h3>Trigger Workflows</h3>
+                    <p class="muted">Simulate the automated weekly triggers.</p>
+                    <div class="btn-group">
+                        <button onclick="triggerMonday()" class="btn btn-primary">Monday Notification</button>
+                        <button onclick="triggerFriday()" class="btn btn-warning">Friday Timecard Generation</button>
+                        <button onclick="resetAll()" class="btn btn-danger">Reset All Data</button>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3>Export CSV</h3>
+                    <p class="muted">Download for workflow automation.</p>
+                    <div class="btn-group">
+                        <a href="/api/export/consultants" class="btn btn-export">Consultant Data</a>
+                        <a href="/api/export/projects" class="btn btn-export">Project Data</a>
+                        <a href="/api/export/timecards" class="btn btn-export">Timecards</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- REJECT MODAL -->
+    <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3 id="modal-title">Reject Timecard</h3>
+            <p id="modal-desc">Provide a reason for rejection. This will be sent to the consultant.</p>
+            <textarea id="modal-textarea" placeholder="e.g., Please split the Data Pipeline hours between Tuesday and Wednesday..."></textarea>
+            <div class="modal-actions">
+                <button onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+                <button id="modal-submit-btn" onclick="submitModal()" class="btn btn-danger">Reject & Send Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODIFY MODAL -->
+    <div id="modify-overlay" class="modal-overlay" onclick="closeModifyModal()">
+        <div class="modal modal-wide" onclick="event.stopPropagation()">
+            <h3>Modify Timecard</h3>
+            <p class="muted">DM Comment: <span id="modify-comment" class="dm-comment"></span></p>
+            <div id="modify-entries"></div>
+            <div class="modal-actions">
+                <button onclick="closeModifyModal()" class="btn btn-secondary">Cancel</button>
+                <button onclick="saveAndResubmit()" class="btn btn-primary">Save & Resubmit to DM</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
